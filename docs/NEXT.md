@@ -1,0 +1,9 @@
+# Mute Focused Window — Project map
+
+- [README](../README.md) identifies the selected preset, fresh-clone setup and complete verification.
+- [[DESIGN]], [[DECISIONS]] and [[JUDGEMENTS]] route the permanent canon.
+- [GitHub Issues](https://github.com/Benevolent-Anarchy/Mute-Focused-Window/issues) hold unfinished work, questions and discussions.
+- [AGENTS.md](../AGENTS.md) defines the shared working process.
+- [tools/verify.ps1](../tools/verify.ps1) is the complete gate required before opening a PR.
+
+Update this map only when orientation changes. Session endings do not require entries or PRs. Add implementation pointers as they exist; keep task queues and session history out of this file.
