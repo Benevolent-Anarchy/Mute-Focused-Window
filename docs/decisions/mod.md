@@ -46,7 +46,7 @@ The fallback sets the endpoint mute directly through Core Audio, so Windows' vol
 
 ### Keep failed audio operations out of the toggle
 
-A press decides the new state only from sessions whose mute could be read, sets only those, and counts only successful writes. Any audio operation failure ends the press as **failed**, which never falls back to muting the system. That includes a search that couldn't inspect every device or session.
+A press decides the new state only from sessions whose mute could be read, sets only those, and counts only successful writes. It ends as **toggled** if at least one session was set, and the log counts the sessions that failed. It ends as **failed** if none could be set, or if a search that couldn't inspect every device or session found none of the app's sessions. Only **no app audio**, from a complete search, may fall back to muting the system; neither toggled nor failed does.
 
 An independent review of PR #3 found this ([Issue #4](https://github.com/Benevolent-Anarchy/Mute-Focused-Window/issues/4)). An unreadable session used to count as unmuted, so a press meant to unmute a muted app on one healthy device muted it again. Failed writes were also logged as success. The review reproduced this with fake sessions, and the unit tests now cover it.
 

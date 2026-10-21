@@ -31,13 +31,13 @@ Each press is logged: the result, the app's executable path and process ID, and 
 ### Press outcomes
 
 A press ends in one of three ways:
-- **Toggled:** at least one session's mute was set.
-- **No app audio:** the focused window is the mod's own, belongs to Explorer, or has no sessions, and every audio device and session could be inspected.
-- **Failed:** an audio operation failed. That includes a search that couldn't inspect every device or session and found none of the app's sessions, because the app may still be playing.
+- **Toggled:** at least one session's mute was set. Sessions that couldn't be read or set are counted in the log. A search that missed some devices or sessions still toggles the sessions it found.
+- **No app audio:** the focused window is the mod's own or belongs to Explorer, or a search that inspected every audio device and session found none of the app's sessions.
+- **Failed:** sessions were found but none could be set, or an incomplete search found none of the app's sessions. The app may still be playing.
 
 ### System mute fallback
 
-The `systemMuteFallback` setting is off by default. When it is on and a press ends with no app audio, the press toggles the mute of the default output device (the console role) instead. A failed press never falls back, so a failure can't mute unrelated apps. Windows' volume indicator does not appear for this mute.
+The `systemMuteFallback` setting is off by default. When it is on and a press ends with no app audio, the press toggles the mute of the default output device (the console role) instead. A toggled or failed press never falls back, so a failure can't mute unrelated apps. Windows' volume indicator does not appear for this mute.
 
 ## Process and lifetime
 
