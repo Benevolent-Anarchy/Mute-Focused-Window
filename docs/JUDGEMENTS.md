@@ -18,3 +18,6 @@ For incomplete history only, use `Date not recorded` or `Hardware not recorded` 
 When a change calls a judgement into question, retain and mark the entry provisional and link an investigation Issue. Close that Issue after a new human check is recorded, not merely after explaining the suspected cause. Preserve old and later evidence. The machine gate validates metadata/index agreement and never supplies the human verdict.
 
 ## Index
+
+### Mod — [[judgements/mod|Mod judgements]]
+- [[judgements/mod#Hotkeys toggle the focused app's mute|Hotkeys toggle the focused app's mute]] — Judged 2026-10-21, on Windows 11 with a Logitech G915. Cicely tried Ctrl+Alt+M, Ctrl+VolumeMute and VolumeMute as the hotkey in Windhawk 1.7.3 and reported that each works — hotkey, Mute key, VolumeMute, G915, Windhawk 1.7.3
