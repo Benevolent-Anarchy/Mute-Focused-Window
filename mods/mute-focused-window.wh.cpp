@@ -3,8 +3,8 @@
 // @name            Mute Focused Window
 // @description     Press a hotkey to mute or unmute the audio of the window that currently has focus
 // @version         1.0
-// @author          Cicely Fischer
-// @github          https://github.com/cicely-f
+// @author          Benevolent Anarchy
+// @github          https://github.com/Benevolent-Anarchy
 // @include         windhawk.exe
 // @compilerOptions -lole32
 // ==/WindhawkMod==
