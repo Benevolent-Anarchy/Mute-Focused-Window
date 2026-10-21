@@ -76,7 +76,8 @@ function Test-WindhawkModMetadata($Mod) {
     if ($Mod.Metadata.Contains('architecture')) {foreach ($architecture in $Mod.Metadata['architecture']) {if (-not $script:Targets.ContainsKey($architecture)) {$problems.Add("${file}: unsupported @architecture '$architecture'.")}}}
     if ($null -eq $Mod.Readme) {$problems.Add("${file}: missing a single // ==WindhawkModReadme== block.")}
     # Every setting the code reads must be declared, so the Windhawk UI can show and store it.
-    $used=@([regex]::Matches($Mod.Text,'Wh_Get(?:Int|String)Setting\s*\(\s*L"([A-Za-z0-9_]+)') | ForEach-Object {$_.Groups[1].Value} | Sort-Object -Unique)
+    # Reads go through the Wh_Get*Setting API or windhawk_utils.h's StringSetting::make wrapper.
+    $used=@([regex]::Matches($Mod.Text,'(?:Wh_Get(?:Int|String)Setting|StringSetting::make)\s*\(\s*L"([A-Za-z0-9_]+)') | ForEach-Object {$_.Groups[1].Value} | Sort-Object -Unique)
     if ($used.Count) {
         if ($null -eq $Mod.Settings) {$problems.Add("${file}: reads settings but has no // ==WindhawkModSettings== block.")}
         else {

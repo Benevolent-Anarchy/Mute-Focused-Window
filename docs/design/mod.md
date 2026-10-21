@@ -14,7 +14,7 @@ A keyboard's dedicated Mute key can be the hotkey, as `VolumeMute` alone or with
 
 The focused app is the process owning the foreground window. For a UWP window framed by `ApplicationFrameHost.exe`, it is the process owning the framed `Windows.UI.Core.CoreWindow` instead.
 
-The app's audio is every session owned by that process or by its descendants, on every active output device. A descendant that owns its own top-level window (visible, unowned and not a tool window) is a separate app: it and its own descendants are excluded. A process counts as a descendant only if it started after its recorded parent, because Windows reuses process IDs. A process whose start time can't be read is not counted.
+The app's audio is every session owned by that process or by its descendants, on every active output device. A descendant that owns its own top-level window (visible, unowned and not a tool window) is a separate app: it and its own descendants are excluded. Hidden windows don't count, so an app started from the focused app and hidden in the tray belongs to the focused app. A process counts as a descendant only if it started after its recorded parent, because Windows reuses process IDs. A process whose start time can't be read is not counted.
 
 The system sounds session never belongs to an app. A session shared by several processes is matched by the process that created it.
 

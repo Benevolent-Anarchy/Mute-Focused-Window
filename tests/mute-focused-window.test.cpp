@@ -57,6 +57,18 @@ void TestParseHotkey() {
     CHECK(!ParseHotkey(L"!"));
 }
 
+void TestIsAppWindow() {
+    // A visible, unowned window marks a separate app, such as a game's.
+    CHECK(IsAppWindow(true, false, 0));
+    CHECK(IsAppWindow(true, false, WS_EX_APPWINDOW));
+    // Hidden windows never do. Chromium, Electron and WebView2 processes own
+    // hidden captioned windows above the process that plays an app's audio.
+    CHECK(!IsAppWindow(false, false, 0));
+    // Owned windows and tool windows never do either.
+    CHECK(!IsAppWindow(true, true, 0));
+    CHECK(!IsAppWindow(true, false, WS_EX_TOOLWINDOW));
+}
+
 void TestCollectProcessFamily() {
     // Root 10 starts at time 100.
     const std::vector<ProcessInfo> processes = {
@@ -203,6 +215,7 @@ void TestFallback() {
 
 int main() {
     TestParseHotkey();
+    TestIsAppWindow();
     TestCollectProcessFamily();
     TestToggleSessions();
     TestFallback();

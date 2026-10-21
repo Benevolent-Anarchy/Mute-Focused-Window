@@ -55,6 +55,16 @@ Rejected alternatives:
 - Reporting a failure as **no app audio**: with `systemMuteFallback` on, that would mute the whole system while the app might still be playing.
 - Writing to unreadable sessions anyway: they are typically on a device that has gone away.
 
+### Keep hidden windows out of the separate-app rule
+
+Only a visible, unowned, non-tool window marks a descendant process as a separate app. A hidden window never does, even a captioned one. So an app started from the focused app and minimized to the tray is muted along with it. The readme states this limitation.
+
+The windhawk-mods AI review of [ramensoftware/windhawk-mods#6456](https://github.com/ramensoftware/windhawk-mods/pull/6456) suggested also counting hidden captioned windows. That would cover tray apps, such as a music player started from a launcher. It was tried and rejected on 2026-10-21. In a read-only run on Cicely's machine, it cut off the only audio session of WhatsApp and DuckDuckGo. Their audio process sits below a WebView2 browser process that owns a hidden captioned `Chrome_WidgetWin_0` window.
+
+Hidden captioned windows turned out to be common. Every Chromium, Electron and WebView2 browser process owns one. WPF apps own "Hidden Window" windows, and background services own titled message windows. Their styles match a hidden app main window exactly. Telling them apart by title or class was rejected as unreliable.
+
+The same review noted that Ctrl+Alt+M also takes Word's Insert Comment shortcut, alongside the AltGr conflict in [[decisions/mod#Default hotkey Ctrl+Alt+M|Default hotkey Ctrl+Alt+M]]. The readme now names both; the default stays, as judged acceptable.
+
 ### License the mod under MIT
 
 The mod declares `@license MIT`, and the licence text is in [mods/LICENSE](../../mods/LICENSE), with Benevolent Anarchy as the copyright holder. MIT is the usual licence for Windhawk mods, and windhawk-mods treats a mod with no `@license` as MIT anyway; declaring it makes that explicit in this repository too.
