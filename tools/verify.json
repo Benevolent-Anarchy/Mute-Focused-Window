@@ -1,1 +1,1 @@
-{"schemaVersion":1,"preset":"foundation","requiredChecks":["documentation"]}
+{"schemaVersion":1,"preset":"foundation","requiredChecks":["documentation","windhawk-metadata","windhawk-build","windhawk-tests"]}

@@ -1,6 +1,8 @@
 #requires -Version 7.2
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+# Checks this project adds to its preset; WindhawkVerification.psm1 runs them.
+$script:ProjectChecks=@('windhawk-metadata','windhawk-build','windhawk-tests')
 function Read-ProjectVerificationConfig([string]$Repository) {
     try {
         $config=ConvertFrom-Json -AsHashtable ([IO.File]::ReadAllText((Join-Path $Repository 'tools/verify.json')))
@@ -11,7 +13,7 @@ function Read-ProjectVerificationConfig([string]$Repository) {
             tauri {@('documentation','typescript','frontend-tests','frontend-build','rust-format','rust-lint','rust-tests','tauri-build')}
         })
         foreach ($check in $required) {if ($check -notin $config.requiredChecks) {throw "Missing required check: $check"}}
-        if (@($config.requiredChecks | Where-Object {$_ -isnot [string] -or $_ -notin ($required+@('gut-rendered'))}).Count -or @($config.requiredChecks | Select-Object -Unique).Count -ne $config.requiredChecks.Count) {throw 'Invalid required checks.'}
+        if (@($config.requiredChecks | Where-Object {$_ -isnot [string] -or $_ -notin ($required+@('gut-rendered')+$script:ProjectChecks)}).Count -or @($config.requiredChecks | Select-Object -Unique).Count -ne $config.requiredChecks.Count) {throw 'Invalid required checks.'}
         if ($config.preset -ne 'godot' -and 'gut-rendered' -in $config.requiredChecks) {throw 'Rendered tests require the Godot preset.'}
         return $config
     } catch {throw "Verification config: $($_.Exception.Message)"}
@@ -52,6 +54,14 @@ function Invoke-ProjectVerification([string]$Repository,[scriptblock]$Process={p
             foreach ($stage in $engine.Stages) {$stages.Add($stage)}
             foreach ($message in $engine.Diagnostics) {$diagnostics.Add($message)}
         } catch {$stages.Add(@{Name=$config.preset;Passed=$false;ExitCode=1;Diagnostics=@($_.Exception.Message)})}
+    }
+    if (@($config.requiredChecks | Where-Object {$_ -in $script:ProjectChecks}).Count) {
+        try {
+            Import-Module (Join-Path $PSScriptRoot 'WindhawkVerification.psm1') -Force
+            $windhawk=Invoke-WindhawkVerification $Repository $config $Process
+            foreach ($stage in $windhawk.Stages) {$stages.Add($stage)}
+            foreach ($message in $windhawk.Diagnostics) {$diagnostics.Add($message)}
+        } catch {$stages.Add(@{Name='windhawk';Passed=$false;ExitCode=1;Diagnostics=@($_.Exception.Message)})}
     }
     foreach ($required in $config.requiredChecks) {
         if (@($stages | Where-Object Name -eq $required).Count -ne 1) {$stages.Add(@{Name=$required;Passed=$false;ExitCode=1;Diagnostics=@("Required stage did not report exactly one result: $required")})}

@@ -40,8 +40,8 @@ This is the canonical working process for every agent. Read docs/NEXT.md for ori
 
 ## Selected preset: Documentation foundation
 
-This preset supplies documentation and the working process. It has no engine dependencies. Use PowerShell 7.2 or newer and Git.
+This preset supplies documentation and the working process. Use PowerShell 7.2 or newer and Git. The gate also needs Windhawk installed, or `WINDHAWK_ROOT` pointing at a portable copy.
 
 Run `pwsh -NoProfile -File tools/verify.ps1` after setup and against the finished PR state.
 
-The complete initial gate validates documentation. Extend this same gate as project checks are added.
+The gate validates documentation, then checks, builds and unit-tests each mod under `mods/` with the installed Windhawk compiler. Extend this same gate as project checks are added.

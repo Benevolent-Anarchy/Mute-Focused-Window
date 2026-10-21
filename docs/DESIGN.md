@@ -18,3 +18,9 @@ Wikilinks resolve from the `docs/` vault root with `.md` implicit; heading targe
 ```
 
 ## Index
+
+### Mod behaviour — [[design/mod|Mod behaviour]]
+- [[design/mod#Hotkey|Hotkey]] — setting format, modifiers, key names, MOD_NOREPEAT, registration failure, log
+- [[design/mod#Which audio belongs to the focused app|Which audio belongs to the focused app]] — foreground window, UWP, ApplicationFrameHost, child processes, process tree, browsers, Electron, PID reuse, system sounds, Explorer
+- [[design/mod#Toggling|Toggling]] — mute, unmute, all sessions, Volume Mixer, persistence
+- [[design/mod#Process and lifetime|Process and lifetime]] — tool mod, windhawk.exe, thread, message loop, COM, settings change, unload
