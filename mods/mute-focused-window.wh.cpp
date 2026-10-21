@@ -5,9 +5,16 @@
 // @version         1.0
 // @author          Benevolent Anarchy
 // @github          https://github.com/cicely-f
+// @homepage        https://github.com/Benevolent-Anarchy/Mute-Focused-Window
 // @include         windhawk.exe
 // @compilerOptions -lole32
+// @license         MIT
 // ==/WindhawkMod==
+
+// Source code is published under the MIT License.
+//
+// Development, bug reports and feature requests:
+// https://github.com/Benevolent-Anarchy/Mute-Focused-Window
 
 // ==WindhawkModReadme==
 /*

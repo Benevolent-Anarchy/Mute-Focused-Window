@@ -36,6 +36,16 @@ The default hotkey is `Ctrl+Alt+M`, chosen as M for mute. The setting accepts an
 
 Known conflicts: on keyboard layouts with AltGr, AltGr acts as Ctrl+Alt, so AltGr+M (µ on German and Nordic layouts) triggers the hotkey instead of typing. IntelliJ-based editors use `Ctrl+Alt+M` for Extract Method. Rejected defaults: `Ctrl+Shift+M` is mute in Teams and Discord, `Win+Ctrl+M` opens Magnifier settings, `Win+Shift+M` restores minimised windows, and `Win+Alt+M` belongs to the Xbox Game Bar.
 
+### License the mod under MIT
+
+The mod declares `@license MIT`, and the licence text is in [mods/LICENSE](../../mods/LICENSE), with Benevolent Anarchy as the copyright holder. MIT is the usual licence for Windhawk mods, and windhawk-mods treats a mod with no `@license` as MIT anyway; declaring it makes that explicit in this repository too.
+
+The licence covers the mod only. A repository-wide licence was not added, because the gate tooling and documentation come from the ba-bootstrap recipe and weren't part of this choice.
+
+### Credit Benevolent Anarchy with a personal GitHub link
+
+`@author` is Benevolent Anarchy. `@github` is `https://github.com/cicely-f`, because the windhawk-mods PR validator requires that line to be the GitHub account opening the submission PR, and an organisation can't open one. `@homepage` points at this repository, which is public.
+
 ### Read the hotkey as text
 
 The `hotkey` setting is a `Modifier+Key` string, parsed by the mod. Windhawk 1.7.3 has no hotkey setting type; the `$format: hotkey` annotation exists only in the 2.0 alpha. Separate key and modifier checkbox settings, as in `force-kill-active-window`, were rejected as wordier for the same result.

@@ -8,7 +8,7 @@ Start with [the project map](docs/NEXT.md). [Design](docs/DESIGN.md), [decisions
 
 ## The mod
 
-The whole mod is [mods/mute-focused-window.wh.cpp](mods/mute-focused-window.wh.cpp). Its readme block, near the top of the file, explains what it does and how to change the hotkey; [the design note](docs/design/mod.md) gives the detail.
+The whole mod is [mods/mute-focused-window.wh.cpp](mods/mute-focused-window.wh.cpp), released under the [MIT License](mods/LICENSE). Its readme block, near the top of the file, explains what it does and how to change the hotkey; [the design note](docs/design/mod.md) gives the detail.
 
 To try it, open Windhawk 1.7.3 and choose **Create a New Mod**. Replace the template with the file's contents and press **Compile Mod** (Ctrl+B). The default hotkey is Ctrl+Alt+M. **Enable logging** and **Show Log Output** in the editor's sidebar show what each press did.
 
