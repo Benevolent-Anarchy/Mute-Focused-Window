@@ -36,6 +36,14 @@ The default hotkey is `Ctrl+Alt+M`, chosen as M for mute. The setting accepts an
 
 Known conflicts: on keyboard layouts with AltGr, AltGr acts as Ctrl+Alt, so AltGr+M (µ on German and Nordic layouts) triggers the hotkey instead of typing. IntelliJ-based editors use `Ctrl+Alt+M` for Extract Method. Rejected defaults: `Ctrl+Shift+M` is mute in Teams and Discord, `Win+Ctrl+M` opens Magnifier settings, `Win+Shift+M` restores minimised windows, and `Win+Alt+M` belongs to the Xbox Game Bar.
 
+### Offer a system mute fallback for the Mute key
+
+Dedicated Mute keys and laptop mute keys send the standard `VolumeMute` virtual key, so the existing `hotkey` setting already accepts them; nothing vendor-specific is needed. On 2026-10-21, registering `VolumeMute` and `Ctrl+VolumeMute` succeeded on Cicely's Windows 11 machine, which has a Logitech G915. Whether a press reaches the mod rather than Windows' own mute still needs the human check in [Issue #1](https://github.com/Benevolent-Anarchy/Mute-Focused-Window/issues/1).
+
+With plain `VolumeMute` as the hotkey, the key would do nothing wherever there is no app audio to toggle. The `systemMuteFallback` setting toggles the default output device's mute in that case. It is off by default, because with a key like Ctrl+Alt+M a press that mutes everything would be a surprise. Cicely chose the setting over leaving the behaviour unchanged.
+
+The fallback sets the endpoint mute directly through Core Audio, so Windows' volume indicator does not appear. Re-sending the Mute key so Windows handles it was rejected: the mod's own hotkey would catch it again, and briefly unregistering the hotkey would race with real presses. Sending `WM_APPCOMMAND` to the shell was not adopted because it needs a top-level window and hasn't been tested.
+
 ### License the mod under MIT
 
 The mod declares `@license MIT`, and the licence text is in [mods/LICENSE](../../mods/LICENSE), with Benevolent Anarchy as the copyright holder. MIT is the usual licence for Windhawk mods, and windhawk-mods treats a mod with no `@license` as MIT anyway; declaring it makes that explicit in this repository too.

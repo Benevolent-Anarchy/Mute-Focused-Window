@@ -55,6 +55,21 @@ Windows gives a hotkey to only one program at a time, and other apps stop
 receiving that key combination. If the hotkey does nothing, another program may
 already own it. Turn on logging in the mod's Advanced tab to see why.
 
+## Using the keyboard's Mute key
+
+Most keyboards with a dedicated Mute key, and laptops with a mute function key,
+send `VolumeMute`.
+
+* Set the hotkey to `VolumeMute` to make the Mute key mute the focused app
+  instead of everything. Also turn on **Mute the system when there's no app to
+  mute**, so the key still mutes everything when you press it on the desktop,
+  the taskbar, a File Explorer window or an app without audio.
+* Set the hotkey to `Ctrl+VolumeMute` to keep the Mute key as it is and use
+  Ctrl+Mute for the focused app.
+
+Keyboard software that reassigns the Mute key can stop it from sending
+`VolumeMute`.
+
 ## Limitations
 
 * A browser is muted as a whole, not tab by tab. The Volume Mixer shows it the
@@ -62,7 +77,8 @@ already own it. Turn on logging in the mod's Advanced tab to see why.
 * Windows remembers an app's mute setting. An app you muted is still muted the
   next time it starts; press the hotkey or use the Volume Mixer to unmute it.
 * Pressing the hotkey on the desktop, the taskbar or a File Explorer window does
-  nothing.
+  nothing, unless **Mute the system when there's no app to mute** is on.
+* That system mute doesn't show Windows' volume indicator.
 */
 // ==/WindhawkModReadme==
 
@@ -70,11 +86,15 @@ already own it. Turn on logging in the mod's Advanced tab to see why.
 /*
 - hotkey: Ctrl+Alt+M
   $name: Hotkey
-  $description: Modifier keys and one key joined by +, such as Ctrl+Alt+M or Win+Shift+F9
+  $description: Modifier keys and one key joined by +, such as Ctrl+Alt+M, Win+Shift+F9 or VolumeMute
+- systemMuteFallback: false
+  $name: Mute the system when there's no app to mute
+  $description: When the focused window has no app audio, as on the desktop or the taskbar, mute or unmute the default output device instead. Useful with VolumeMute as the hotkey.
 */
 // ==/WindhawkModSettings==
 
 #include <audiopolicy.h>
+#include <endpointvolume.h>
 #include <mmdeviceapi.h>
 #include <tlhelp32.h>
 #include <wrl/client.h>
@@ -327,6 +347,8 @@ constexpr UINT kMsgQuit = WM_APP + 2;
 
 HANDLE g_hotkeyThread;
 DWORD g_hotkeyThreadId;
+// Read and written only on the hotkey thread.
+bool g_systemMuteFallback;
 
 ULONGLONG GetProcessCreationTime(DWORD processId) {
     HANDLE process =
@@ -476,11 +498,35 @@ std::vector<ComPtr<ISimpleAudioVolume>> FindSessionVolumes(
     return volumes;
 }
 
-void ToggleFocusedAppMute() {
+// Toggles the default output device's mute, as a keyboard's Mute key does,
+// but without Windows' volume indicator.
+void ToggleSystemMute() {
+    ComPtr<IMMDeviceEnumerator> enumerator;
+    ComPtr<IMMDevice> device;
+    ComPtr<IAudioEndpointVolume> endpointVolume;
+    BOOL muted = FALSE;
+    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr,
+                                CLSCTX_INPROC_SERVER,
+                                IID_PPV_ARGS(&enumerator))) ||
+        FAILED(enumerator->GetDefaultAudioEndpoint(eRender, eConsole,
+                                                   &device)) ||
+        FAILED(device->Activate(
+            __uuidof(IAudioEndpointVolume), CLSCTX_ALL, nullptr,
+            reinterpret_cast<void**>(endpointVolume.GetAddressOf()))) ||
+        FAILED(endpointVolume->GetMute(&muted)) ||
+        FAILED(endpointVolume->SetMute(!muted, nullptr))) {
+        Wh_Log(L"Can't toggle the system mute");
+        return;
+    }
+    Wh_Log(L"%s the system", muted ? L"Unmuted" : L"Muted");
+}
+
+// Returns false if the focused window has no app audio to toggle.
+bool ToggleFocusedAppMute() {
     DWORD rootId = GetFocusedAppProcessId();
     if (!rootId || rootId == GetCurrentProcessId()) {
         Wh_Log(L"The focused window isn't an app window");
-        return;
+        return false;
     }
     // Explorer hosts the desktop, the taskbar and folder windows, and starts
     // nearly every app, so its descendants include unrelated background apps.
@@ -492,14 +538,14 @@ void ToggleFocusedAppMute() {
         (!rootPath.empty() &&
          EqualsIgnoreCase(rootPath, GetProcessImagePath(shellId)))) {
         Wh_Log(L"The focused window belongs to Explorer");
-        return;
+        return false;
     }
 
     std::vector<ComPtr<ISimpleAudioVolume>> volumes = FindSessionVolumes(
         CollectProcessFamily(rootId, SnapshotProcesses(), GetWindowOwnerIds()));
     if (volumes.empty()) {
         Wh_Log(L"Process %u has no audio sessions", rootId);
-        return;
+        return false;
     }
 
     std::vector<BOOL> muted;
@@ -514,11 +560,15 @@ void ToggleFocusedAppMute() {
     }
     Wh_Log(L"%s %d session(s) of process %u", mute ? L"Muted" : L"Unmuted",
            static_cast<int>(volumes.size()), rootId);
+    return true;
 }
 
-// Registers the hotkey from the settings for the calling thread, replacing any
-// earlier registration. WM_HOTKEY arrives in this thread's message queue.
-void RegisterHotkeyFromSettings() {
+// Reads the settings and registers the hotkey for the calling thread,
+// replacing any earlier registration. WM_HOTKEY arrives in this thread's
+// message queue.
+void LoadSettings() {
+    g_systemMuteFallback = Wh_GetIntSetting(L"systemMuteFallback") != 0;
+
     UnregisterHotKey(nullptr, kHotkeyId);
     PCWSTR text = Wh_GetStringSetting(L"hotkey");
     if (std::optional<Hotkey> hotkey = ParseHotkey(text)) {
@@ -541,18 +591,19 @@ DWORD WINAPI HotkeyThreadProc(LPVOID readyEvent) {
     // settings and uninit callbacks are never lost.
     MSG msg;
     PeekMessage(&msg, nullptr, WM_USER, WM_USER, PM_NOREMOVE);
-    RegisterHotkeyFromSettings();
+    LoadSettings();
     SetEvent(static_cast<HANDLE>(readyEvent));
 
     while (GetMessage(&msg, nullptr, 0, 0) > 0) {
         switch (msg.message) {
             case WM_HOTKEY:
-                if (msg.wParam == kHotkeyId) {
-                    ToggleFocusedAppMute();
+                if (msg.wParam == kHotkeyId && !ToggleFocusedAppMute() &&
+                    g_systemMuteFallback) {
+                    ToggleSystemMute();
                 }
                 break;
             case kMsgReloadSettings:
-                RegisterHotkeyFromSettings();
+                LoadSettings();
                 break;
             case kMsgQuit:
                 PostQuitMessage(0);

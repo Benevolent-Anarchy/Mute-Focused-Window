@@ -8,6 +8,8 @@ A single global hotkey toggles mute for the focused app. The `hotkey` setting ho
 
 The hotkey is registered with `MOD_NOREPEAT`, so holding it toggles once. An invalid setting or a combination already owned by another program leaves no hotkey registered and writes the reason to the mod's log. Changing the setting re-registers the hotkey without restarting the mod.
 
+A keyboard's dedicated Mute key can be the hotkey, as `VolumeMute` alone or with modifiers. While registered, the combination no longer reaches Windows' own mute.
+
 ## Which audio belongs to the focused app
 
 The focused app is the process owning the foreground window. For a UWP window framed by `ApplicationFrameHost.exe`, it is the process owning the framed `Windows.UI.Core.CoreWindow` instead.
@@ -21,6 +23,10 @@ Nothing happens when the focused window belongs to the mod's own process or to E
 ## Toggling
 
 All of the app's sessions change together. If any session is unmuted, the press mutes every session; if all are muted, it unmutes them. The mute is the per-session mute the Windows Volume Mixer shows, so Windows keeps it when the app restarts.
+
+### System mute fallback
+
+The `systemMuteFallback` setting is off by default. When it is on and a press finds no app audio to toggle, the press toggles the mute of the default output device (the console role) instead. That covers the mod's own process, Explorer, and an app with no matched sessions. Windows' volume indicator does not appear for this mute.
 
 ## Process and lifetime
 
