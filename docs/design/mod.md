@@ -24,9 +24,20 @@ Nothing happens when the focused window belongs to the mod's own process or to E
 
 All of the app's sessions change together. If any session is unmuted, the press mutes every session; if all are muted, it unmutes them. The mute is the per-session mute the Windows Volume Mixer shows, so Windows keeps it when the app restarts.
 
+A session whose mute state can't be read, such as one on a device that was just unplugged, is left out of both the decision and the change. The press succeeds if at least one session's mute was set; otherwise it fails.
+
+Each press is logged: the result, the app's executable path and process ID, and how many sessions changed or failed. A press on a framed UWP app also logs that the CoreWindow's process was used.
+
+### Press outcomes
+
+A press ends in one of three ways:
+- **Toggled:** at least one session's mute was set.
+- **No app audio:** the focused window is the mod's own, belongs to Explorer, or has no sessions, and every audio device and session could be inspected.
+- **Failed:** an audio operation failed. That includes a search that couldn't inspect every device or session and found none of the app's sessions, because the app may still be playing.
+
 ### System mute fallback
 
-The `systemMuteFallback` setting is off by default. When it is on and a press finds no app audio to toggle, the press toggles the mute of the default output device (the console role) instead. That covers the mod's own process, Explorer, and an app with no matched sessions. Windows' volume indicator does not appear for this mute.
+The `systemMuteFallback` setting is off by default. When it is on and a press ends with no app audio, the press toggles the mute of the default output device (the console role) instead. A failed press never falls back, so a failure can't mute unrelated apps. Windows' volume indicator does not appear for this mute.
 
 ## Process and lifetime
 

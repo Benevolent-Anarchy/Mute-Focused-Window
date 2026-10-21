@@ -22,6 +22,7 @@ Group indexed entries beneath a heading linking their actual topic file. Link ev
 - [[decisions/mod#Do nothing for Explorer|Do nothing for Explorer]] — shell, desktop, taskbar, folder windows, background apps
 - [[decisions/mod#Default hotkey Ctrl+Alt+M|Default hotkey Ctrl+Alt+M]] — shortcut, conflicts, AltGr, IntelliJ, Teams, Discord, Game Bar
 - [[decisions/mod#Offer a system mute fallback for the Mute key|Offer a system mute fallback for the Mute key]] — VolumeMute, Logitech G915, keyboard, media key, systemMuteFallback, volume indicator, WM_APPCOMMAND
+- [[decisions/mod#Keep failed audio operations out of the toggle|Keep failed audio operations out of the toggle]] — GetMute, SetMute, HRESULT, unplugged device, AUDCLNT_E_DEVICE_INVALIDATED, review, fallback, failure
 - [[decisions/mod#License the mod under MIT|License the mod under MIT]] — licence, license, @license, copyright, LICENSE
 - [[decisions/mod#Credit Benevolent Anarchy with a personal GitHub link|Credit Benevolent Anarchy with a personal GitHub link]] — @author, @github, @homepage, windhawk-mods validator, organisation
 - [[decisions/mod#Read the hotkey as text|Read the hotkey as text]] — settings, $format hotkey, checkboxes

@@ -84,18 +84,128 @@ void TestCollectProcessFamily() {
            std::unordered_set<DWORD>{0}));
 }
 
-void TestShouldMute() {
-    CHECK(!ShouldMute({}));
-    CHECK(ShouldMute({FALSE}));
-    CHECK(!ShouldMute({TRUE}));
-    CHECK(ShouldMute({TRUE, FALSE}));
-    CHECK(!ShouldMute({TRUE, TRUE}));
+// A session's volume control whose reads and writes can be made to fail. The
+// test owns it on the stack; reference counting never deletes it.
+class FakeVolume : public ISimpleAudioVolume {
+   public:
+    FakeVolume(BOOL muted, HRESULT getResult = S_OK, HRESULT setResult = S_OK)
+        : muted(muted), getResult(getResult), setResult(setResult) {}
+
+    BOOL muted;
+    HRESULT getResult;
+    HRESULT setResult;
+    int setCalls = 0;
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void** object) override {
+        *object = nullptr;
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
+    ULONG STDMETHODCALLTYPE Release() override { return 1; }
+    HRESULT STDMETHODCALLTYPE SetMasterVolume(float, LPCGUID) override {
+        return E_NOTIMPL;
+    }
+    HRESULT STDMETHODCALLTYPE GetMasterVolume(float*) override {
+        return E_NOTIMPL;
+    }
+    HRESULT STDMETHODCALLTYPE SetMute(const BOOL mute, LPCGUID) override {
+        setCalls++;
+        if (SUCCEEDED(setResult)) {
+            muted = mute;
+        }
+        return setResult;
+    }
+    HRESULT STDMETHODCALLTYPE GetMute(BOOL* mute) override {
+        if (SUCCEEDED(getResult)) {
+            *mute = muted;
+        }
+        return getResult;
+    }
+};
+
+std::vector<ComPtr<ISimpleAudioVolume>> Sessions(
+    std::initializer_list<FakeVolume*> fakes) {
+    std::vector<ComPtr<ISimpleAudioVolume>> volumes;
+    for (FakeVolume* fake : fakes) {
+        volumes.emplace_back(fake);
+    }
+    return volumes;
+}
+
+void TestToggleSessions() {
+    {
+        // A muted session plus one on a device that was just unplugged: the
+        // press unmutes, rather than the unreadable session counting as
+        // unmuted and turning it into a mute.
+        FakeVolume healthy(TRUE);
+        FakeVolume unplugged(FALSE, AUDCLNT_E_DEVICE_INVALIDATED,
+                             AUDCLNT_E_DEVICE_INVALIDATED);
+        SessionToggle toggle = ToggleSessions(Sessions({&healthy, &unplugged}));
+        CHECK(toggle.result == ToggleResult::kToggled);
+        CHECK(!toggle.mute);
+        CHECK(!healthy.muted);
+        CHECK(unplugged.setCalls == 0);
+        CHECK(toggle.changed == 1 && toggle.failed == 1);
+    }
+    {
+        // A partly muted app becomes fully muted.
+        FakeVolume muted(TRUE), playing(FALSE);
+        SessionToggle toggle = ToggleSessions(Sessions({&muted, &playing}));
+        CHECK(toggle.result == ToggleResult::kToggled && toggle.mute);
+        CHECK(muted.muted && playing.muted);
+        CHECK(toggle.changed == 2 && toggle.failed == 0);
+    }
+    {
+        // A fully muted app is unmuted.
+        FakeVolume first(TRUE), second(TRUE);
+        SessionToggle toggle = ToggleSessions(Sessions({&first, &second}));
+        CHECK(toggle.result == ToggleResult::kToggled && !toggle.mute);
+        CHECK(!first.muted && !second.muted);
+    }
+    {
+        // One failed write still toggles the rest and is counted.
+        FakeVolume works(FALSE), rejects(FALSE, S_OK, E_FAIL);
+        SessionToggle toggle = ToggleSessions(Sessions({&works, &rejects}));
+        CHECK(toggle.result == ToggleResult::kToggled && toggle.mute);
+        CHECK(works.muted && !rejects.muted);
+        CHECK(toggle.changed == 1 && toggle.failed == 1);
+    }
+    {
+        // Every write failing is a failure, not a toggle.
+        FakeVolume first(FALSE, S_OK, E_FAIL), second(FALSE, S_OK, E_FAIL);
+        SessionToggle toggle = ToggleSessions(Sessions({&first, &second}));
+        CHECK(toggle.result == ToggleResult::kFailed);
+        CHECK(toggle.changed == 0 && toggle.failed == 2);
+    }
+    {
+        // Every read failing changes nothing.
+        FakeVolume unreadable(TRUE, E_FAIL);
+        SessionToggle toggle = ToggleSessions(Sessions({&unreadable}));
+        CHECK(toggle.result == ToggleResult::kFailed);
+        CHECK(unreadable.setCalls == 0 && unreadable.muted);
+    }
+}
+
+void TestFallback() {
+    CHECK(ShouldFallBackToSystemMute(ToggleResult::kNoAppAudio, true));
+    CHECK(!ShouldFallBackToSystemMute(ToggleResult::kNoAppAudio, false));
+    // A failure may leave the app playing; muting everything would hit
+    // unrelated apps.
+    CHECK(!ShouldFallBackToSystemMute(ToggleResult::kFailed, true));
+    CHECK(!ShouldFallBackToSystemMute(ToggleResult::kToggled, true));
+
+    // An incomplete search that found nothing is a failure, so it can't
+    // trigger the fallback either.
+    CHECK(ResultForNoSessions(true) == ToggleResult::kNoAppAudio);
+    CHECK(ResultForNoSessions(false) == ToggleResult::kFailed);
+    CHECK(!ShouldFallBackToSystemMute(ResultForNoSessions(false), true));
 }
 
 int main() {
     TestParseHotkey();
     TestCollectProcessFamily();
-    TestShouldMute();
+    TestToggleSessions();
+    TestFallback();
     if (g_failures) {
         std::fprintf(stderr, "%d check(s) failed\n", g_failures);
         return 1;

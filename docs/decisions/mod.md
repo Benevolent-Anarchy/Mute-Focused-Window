@@ -44,6 +44,17 @@ With plain `VolumeMute` as the hotkey, the key would do nothing wherever there i
 
 The fallback sets the endpoint mute directly through Core Audio, so Windows' volume indicator does not appear. Re-sending the Mute key so Windows handles it was rejected: the mod's own hotkey would catch it again, and briefly unregistering the hotkey would race with real presses. Sending `WM_APPCOMMAND` to the shell was not adopted because it needs a top-level window and hasn't been tested.
 
+### Keep failed audio operations out of the toggle
+
+A press decides the new state only from sessions whose mute could be read, sets only those, and counts only successful writes. Any audio operation failure ends the press as **failed**, which never falls back to muting the system. That includes a search that couldn't inspect every device or session.
+
+An independent review of PR #3 found this ([Issue #4](https://github.com/Benevolent-Anarchy/Mute-Focused-Window/issues/4)). An unreadable session used to count as unmuted, so a press meant to unmute a muted app on one healthy device muted it again. Failed writes were also logged as success. The review reproduced this with fake sessions, and the unit tests now cover it.
+
+Rejected alternatives:
+- Counting an unreadable session as unmuted, the original behaviour.
+- Reporting a failure as **no app audio**: with `systemMuteFallback` on, that would mute the whole system while the app might still be playing.
+- Writing to unreadable sessions anyway: they are typically on a device that has gone away.
+
 ### License the mod under MIT
 
 The mod declares `@license MIT`, and the licence text is in [mods/LICENSE](../../mods/LICENSE), with Benevolent Anarchy as the copyright holder. MIT is the usual licence for Windhawk mods, and windhawk-mods treats a mod with no `@license` as MIT anyway; declaring it makes that explicit in this repository too.

@@ -99,7 +99,6 @@ Keyboard software that reassigns the Mute key can stop it from sending
 #include <tlhelp32.h>
 #include <wrl/client.h>
 
-#include <algorithm>
 #include <cwctype>
 #include <optional>
 #include <string>
@@ -330,12 +329,66 @@ std::unordered_set<DWORD> CollectProcessFamily(
     return family;
 }
 
-// Decides the new state for all of an app's sessions together: mute unless
-// every session is already muted. A partly muted app becomes fully muted rather
-// than having each session flipped.
-bool ShouldMute(const std::vector<BOOL>& sessionsMuted) {
-    return std::any_of(sessionsMuted.begin(), sessionsMuted.end(),
-                       [](BOOL muted) { return !muted; });
+// What a hotkey press did to the focused app.
+enum class ToggleResult {
+    kToggled,
+    // The focused window has no app audio: it isn't an app window, it belongs
+    // to Explorer, or a complete search found none of its sessions.
+    kNoAppAudio,
+    // An audio operation failed, so the app may still have audio.
+    kFailed,
+};
+
+// Only a press that found no app audio may mute the whole system instead.
+// After a failure the app may still be playing, and muting everything would
+// affect unrelated apps.
+bool ShouldFallBackToSystemMute(ToggleResult result, bool fallbackEnabled) {
+    return fallbackEnabled && result == ToggleResult::kNoAppAudio;
+}
+
+// Finding none of the app's sessions proves it has no audio only if every
+// device and session could be inspected.
+ToggleResult ResultForNoSessions(bool searchComplete) {
+    return searchComplete ? ToggleResult::kNoAppAudio : ToggleResult::kFailed;
+}
+
+struct SessionToggle {
+    ToggleResult result;  // kToggled or kFailed.
+    bool mute;            // The state set, when result is kToggled.
+    int changed;          // Sessions whose mute was set.
+    int failed;           // Sessions that couldn't be read or set.
+};
+
+// Toggles an app's sessions together: mute unless every session whose state
+// could be read is already muted, so a partly muted app becomes fully muted
+// rather than having each session flipped. A session whose state can't be
+// read, such as one on a device that was just unplugged, is left out of both
+// the decision and the change. Fails if no session could be set.
+SessionToggle ToggleSessions(
+    const std::vector<ComPtr<ISimpleAudioVolume>>& volumes) {
+    std::vector<ISimpleAudioVolume*> readable;
+    bool mute = false;
+    for (const auto& volume : volumes) {
+        BOOL muted;
+        if (SUCCEEDED(volume->GetMute(&muted))) {
+            readable.push_back(volume.Get());
+            mute = mute || !muted;
+        }
+    }
+
+    SessionToggle toggle{ToggleResult::kFailed, mute, 0,
+                         static_cast<int>(volumes.size() - readable.size())};
+    for (ISimpleAudioVolume* volume : readable) {
+        if (SUCCEEDED(volume->SetMute(mute, nullptr))) {
+            toggle.changed++;
+        } else {
+            toggle.failed++;
+        }
+    }
+    if (toggle.changed) {
+        toggle.result = ToggleResult::kToggled;
+    }
+    return toggle;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -430,7 +483,10 @@ DWORD GetFocusedAppProcessId() {
         wcscmp(className, L"ApplicationFrameWindow") == 0) {
         if (HWND coreWindow = FindWindowEx(
                 window, nullptr, L"Windows.UI.Core.CoreWindow", nullptr)) {
+            Wh_Log(L"Using the CoreWindow of a framed UWP app");
             window = coreWindow;
+        } else {
+            Wh_Log(L"A framed UWP app has no CoreWindow");
         }
     }
     DWORD processId = 0;
@@ -438,11 +494,17 @@ DWORD GetFocusedAppProcessId() {
     return processId;
 }
 
+struct SessionSearch {
+    std::vector<ComPtr<ISimpleAudioVolume>> volumes;
+    // False if a device or session couldn't be inspected, so finding no
+    // sessions doesn't prove the app has none.
+    bool complete = true;
+};
+
 // Collects the volume controls of all sessions owned by the given processes,
 // on every active output device.
-std::vector<ComPtr<ISimpleAudioVolume>> FindSessionVolumes(
-    const std::unordered_set<DWORD>& processIds) {
-    std::vector<ComPtr<ISimpleAudioVolume>> volumes;
+SessionSearch FindSessionVolumes(const std::unordered_set<DWORD>& processIds) {
+    SessionSearch search;
     ComPtr<IMMDeviceEnumerator> enumerator;
     ComPtr<IMMDeviceCollection> devices;
     UINT deviceCount = 0;
@@ -453,7 +515,8 @@ std::vector<ComPtr<ISimpleAudioVolume>> FindSessionVolumes(
                                               &devices)) ||
         FAILED(devices->GetCount(&deviceCount))) {
         Wh_Log(L"Can't list audio devices");
-        return volumes;
+        search.complete = false;
+        return search;
     }
 
     for (UINT i = 0; i < deviceCount; i++) {
@@ -467,6 +530,8 @@ std::vector<ComPtr<ISimpleAudioVolume>> FindSessionVolumes(
                 reinterpret_cast<void**>(manager.GetAddressOf()))) ||
             FAILED(manager->GetSessionEnumerator(&sessions)) ||
             FAILED(sessions->GetCount(&sessionCount))) {
+            Wh_Log(L"Can't list the sessions of audio device %u", i);
+            search.complete = false;
             continue;
         }
 
@@ -477,6 +542,7 @@ std::vector<ComPtr<ISimpleAudioVolume>> FindSessionVolumes(
             DWORD processId = 0;
             if (FAILED(sessions->GetSession(j, &control)) ||
                 FAILED(control.As(&control2))) {
+                search.complete = false;
                 continue;
             }
             // S_OK means the system sounds session, which belongs to no app.
@@ -486,16 +552,21 @@ std::vector<ComPtr<ISimpleAudioVolume>> FindSessionVolumes(
             // A session shared by several processes returns a success code
             // with the ID of the process that created it, which is what to
             // match.
-            if (FAILED(control2->GetProcessId(&processId)) ||
-                !processIds.contains(processId)) {
+            if (FAILED(control2->GetProcessId(&processId))) {
+                search.complete = false;
+                continue;
+            }
+            if (!processIds.contains(processId)) {
                 continue;
             }
             if (SUCCEEDED(control.As(&volume))) {
-                volumes.push_back(std::move(volume));
+                search.volumes.push_back(std::move(volume));
+            } else {
+                search.complete = false;
             }
         }
     }
-    return volumes;
+    return search;
 }
 
 // Toggles the default output device's mute, as a keyboard's Mute key does,
@@ -521,12 +592,11 @@ void ToggleSystemMute() {
     Wh_Log(L"%s the system", muted ? L"Unmuted" : L"Muted");
 }
 
-// Returns false if the focused window has no app audio to toggle.
-bool ToggleFocusedAppMute() {
+ToggleResult ToggleFocusedAppMute() {
     DWORD rootId = GetFocusedAppProcessId();
     if (!rootId || rootId == GetCurrentProcessId()) {
         Wh_Log(L"The focused window isn't an app window");
-        return false;
+        return ToggleResult::kNoAppAudio;
     }
     // Explorer hosts the desktop, the taskbar and folder windows, and starts
     // nearly every app, so its descendants include unrelated background apps.
@@ -538,29 +608,34 @@ bool ToggleFocusedAppMute() {
         (!rootPath.empty() &&
          EqualsIgnoreCase(rootPath, GetProcessImagePath(shellId)))) {
         Wh_Log(L"The focused window belongs to Explorer");
-        return false;
+        return ToggleResult::kNoAppAudio;
     }
 
-    std::vector<ComPtr<ISimpleAudioVolume>> volumes = FindSessionVolumes(
+    SessionSearch search = FindSessionVolumes(
         CollectProcessFamily(rootId, SnapshotProcesses(), GetWindowOwnerIds()));
-    if (volumes.empty()) {
-        Wh_Log(L"Process %u has no audio sessions", rootId);
-        return false;
+    if (search.volumes.empty()) {
+        ToggleResult result = ResultForNoSessions(search.complete);
+        if (result == ToggleResult::kFailed) {
+            Wh_Log(L"Can't tell whether %s (process %u) has audio sessions",
+                   rootPath.c_str(), rootId);
+        } else {
+            Wh_Log(L"%s (process %u) has no audio sessions", rootPath.c_str(),
+                   rootId);
+        }
+        return result;
     }
 
-    std::vector<BOOL> muted;
-    for (const auto& volume : volumes) {
-        BOOL sessionMuted = FALSE;
-        volume->GetMute(&sessionMuted);
-        muted.push_back(sessionMuted);
+    SessionToggle toggle = ToggleSessions(search.volumes);
+    if (toggle.result != ToggleResult::kToggled) {
+        Wh_Log(L"Can't change the %d session(s) of %s (process %u)",
+               static_cast<int>(search.volumes.size()), rootPath.c_str(),
+               rootId);
+        return toggle.result;
     }
-    BOOL mute = ShouldMute(muted);
-    for (const auto& volume : volumes) {
-        volume->SetMute(mute, nullptr);
-    }
-    Wh_Log(L"%s %d session(s) of process %u", mute ? L"Muted" : L"Unmuted",
-           static_cast<int>(volumes.size()), rootId);
-    return true;
+    Wh_Log(L"%s %d session(s) of %s (process %u); %d failed",
+           toggle.mute ? L"Muted" : L"Unmuted", toggle.changed,
+           rootPath.c_str(), rootId, toggle.failed);
+    return ToggleResult::kToggled;
 }
 
 // Reads the settings and registers the hotkey for the calling thread,
@@ -597,8 +672,9 @@ DWORD WINAPI HotkeyThreadProc(LPVOID readyEvent) {
     while (GetMessage(&msg, nullptr, 0, 0) > 0) {
         switch (msg.message) {
             case WM_HOTKEY:
-                if (msg.wParam == kHotkeyId && !ToggleFocusedAppMute() &&
-                    g_systemMuteFallback) {
+                if (msg.wParam == kHotkeyId &&
+                    ShouldFallBackToSystemMute(ToggleFocusedAppMute(),
+                                               g_systemMuteFallback)) {
                     ToggleSystemMute();
                 }
                 break;
