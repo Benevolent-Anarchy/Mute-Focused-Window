@@ -4,7 +4,7 @@
 // @description     Press a hotkey to mute or unmute the audio of the window that currently has focus
 // @version         1.0
 // @author          Benevolent Anarchy
-// @github          https://github.com/Benevolent-Anarchy
+// @github          https://github.com/cicely-f
 // @include         windhawk.exe
 // @compilerOptions -lole32
 // ==/WindhawkMod==
