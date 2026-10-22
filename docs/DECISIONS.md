@@ -32,3 +32,7 @@ Group indexed entries beneath a heading linking their actual topic file. Link ev
 - [[decisions/verification#Build mods with the installed Windhawk compiler|Build mods with the installed Windhawk compiler]] — gate, clang, llvm-mingw, x86, x86-64, -Werror, WINDHAWK_ROOT, windhawk.ini
 - [[decisions/verification#Unit test pure logic by including the mod|Unit test pure logic by including the mod]] — tests, WH_EDITING, stubs, human check
 - [[decisions/verification#Check mod metadata in the gate|Check mod metadata in the gate]] — @id, @version, readme, settings, windhawk-mods validator
+
+### Publishing — [[decisions/publishing|Publishing decisions]]
+- [[decisions/publishing#Publish from main through a personal fork|Publish from main through a personal fork]] — fork, cicely-f, windhawk-mods, @github, source of truth, sync, merged main
+- [[decisions/publishing#Batch small fixes into the next catalogue update|Batch small fixes into the next catalogue update]] — review queue, /ai-review, /ready-for-reviewer, Issue #8, 1.0.1, deferral

@@ -26,3 +26,9 @@ Wikilinks resolve from the `docs/` vault root with `.md` implicit; heading targe
 - [[design/mod#Press outcomes|Press outcomes]] — toggled, no app audio, failed, incomplete search, ToggleResult
 - [[design/mod#System mute fallback|System mute fallback]] — systemMuteFallback, default device, endpoint mute, desktop, no audio, volume indicator
 - [[design/mod#Process and lifetime|Process and lifetime]] — tool mod, windhawk.exe, thread, message loop, COM, settings change, unload
+
+### Publishing — [[design/publishing|Publishing]]
+- [[design/publishing#Where the mod is published|Where the mod is published]] — Windhawk catalogue, windhawk.net, ramensoftware/windhawk-mods, source of truth, main
+- [[design/publishing#Shipping an update|Shipping an update]] — release, new version, @version, pr_validation.py, fork, cicely-f, changelog, /ai-review, /ready-for-reviewer, draft
+- [[design/publishing#Rules windhawk-mods enforces|Rules windhawk-mods enforces]] — one file, @id, @github, @architecture, encoding, validator
+- [[design/publishing#Tooling pitfalls|Tooling pitfalls]] — Git Bash, MSYS_NO_PATHCONV, leading slash, sparse checkout
